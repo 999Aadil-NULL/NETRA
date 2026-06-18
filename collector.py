@@ -58,9 +58,11 @@ def process_and_store(device_name, raw_data):
     hsrp_text = raw_data.get("show standby brief", "")
     try:
         parsed_hsrp = parse_output(platform="cisco_ios", command="show standby brief", data=hsrp_text)
-        metrics["hsrp_state"] = parsed_hsrp[0].get("state") if parsed_hsrp else "Unknown"
+        state_str = parsed_hsrp[0].get("state") if parsed_hsrp else "Unknown"
+        # Map Active to 1, everything else (Standby, Unknown, Error) to 0
+        metrics["hsrp_active_status"] = 1 if state_str == "Active" else 0
     except Exception:
-        metrics["hsrp_state"] = "Error"
+        metrics["hsrp_active_status"] = 0
         
     # 5. Route Table Size (Total Networks)
     route_text = raw_data.get("show ip route summary", "")
@@ -86,7 +88,7 @@ def process_and_store(device_name, raw_data):
             .field("cpu_utilization", metrics.get("cpu_utilization_pct")) \
             .field("interfaces_up", metrics.get("interfaces_up_count")) \
             .field("ospf_neighbors", metrics.get("ospf_neighbor_count")) \
-            .field("hsrp_state", metrics.get("hsrp_state")) \
+            .field("hsrp_active_status", metrics.get("hsrp_active_status")) \
             .field("route_table_size", metrics.get("route_table_size")) \
             .field("ping_rtt", metrics.get("ping_rtt_ms")) \
             .time(datetime.utcnow(), WritePrecision.NS)
@@ -101,97 +103,4 @@ if __name__ == "__main__":
     print("--- Initiating Toy Data Test ---")
     # Pushing the mock data from main_output.py ( For Testing purposes only)
     process_and_store("R1-Core", output)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# def process_telemetry(raw_data):
-     
-#     telemetry_profile = {
-#     "timestamp": datetime.now(timezone.utc).isoformat(),
-#     "metrics": {}
-#     }
-
-#     # 1. CPU Load
-#     cpu_text = raw_data.get("show processes cpu", "")
-#     telemetry_profile["metrics"]["cpu_utilization_pct"] = parse_cpu(cpu_text)
-    
-#     # 2. Parse Interfaces 
-#     int_text = raw_data.get("show ip interface brief", "")
-#     parsed_ints = parse_output(platform="cisco_ios", command="show ip interface brief", data=int_text)
-#     # Count how many interfaces are fully operational (status 'up' and protocol 'up')
-#     up_interfaces = sum(1 for i in parsed_ints if i['status'] == 'up' and i['proto'] == 'up')
-#     telemetry_profile["metrics"]["interfaces_up_count"] = up_interfaces
-    
-#     # 3. Parse OSPF Neighbors (Using ntc-templates TextFSM parsing)
-#     ospf_text = raw_data.get("show ip ospf neighbor", "")
-#     parsed_ospf = parse_output(platform="cisco_ios", command="show ip ospf neighbor", data=ospf_text)
-#     telemetry_profile["metrics"]["ospf_neighbor_count"] = len(parsed_ospf)
-    
-#     # 4. Parse HSRP State ( This is Redundant )
-#     hsrp_text = raw_data.get("show standby brief", "")
-#     parsed_hsrp = parse_output(platform="cisco_ios", command="show standby brief", data=hsrp_text)
-#     # Extract the state of the first configured group (Active / Standby)
-#     telemetry_profile["metrics"]["hsrp_state"] = parsed_hsrp[0].get("state") if parsed_hsrp else "Unknown"
-    
-#     # 5. Parse Routing Table Size ( This is redundant )
-#     route_text = raw_data.get("show ip route summary", "")
-#     parsed_routes = parse_output(platform="cisco_ios", command="show ip route summary", data=route_text)
-#     # Extract total networks from the summary block
-#     total_routes = int(parsed_routes[0].get("total_networks", 0)) if parsed_routes else 0
-#     telemetry_profile["metrics"]["route_table_size"] = total_routes
-    
-#     # 6. Parse Ping RTT
-#     ping_key = next((k for k in raw_data.keys() if k.startswith("ping")), None)
-#     if ping_key:
-#         telemetry_profile["metrics"]["ping_rtt_ms"] = parse_ping(raw_data[ping_key])
-        
-#     return telemetry_profile
-
-# if __name__ == "__main__":
-
-#     print("--- Processing Mock Telemetry Stream ---")
-#     structured_json = process_telemetry(output)
-    
-#     # Printing to stdout just in case 
-#     print(json.dumps(structured_json, indent=4))
     
